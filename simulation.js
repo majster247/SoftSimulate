@@ -82,7 +82,123 @@ function resetView(){
 
 loop = function(){
     // here ad procedure for loop
+
+
+    //Power calculation
+
+    for(var i=0; i<NUMP; i++){
+        fx[i]=0;
+        fy[i]=-m*g;
+    }
+
+    var x1, x2, y1, y2;
+    var fs;
+    var dvx, dvy;
+    var Fx, Fy;
     
+    for(var i=0; i<NUMS; i++){
+        var p1 = springs[i*3 + 0];
+        var p2 = springs[i*3 + 1];
+        var d0 = springs[i*3 + 2];
+
+        x1 = x[p1]; y1 = y[p1];
+        x2 = x[p2]; y2 = y[p2];
+        var d=dist(x1,y1,x2,y2);
+    
+
+        if(d>0){
+            var tx = (x2-x1)/d;
+            var ty = (y2-y1)/d;
+
+            dvx = vx[p1]-vx[p2];
+            dvy = vy[p1]-vy[p2];
+
+            fs = (d - d0)*KS;
+            fs = fs + (dvx*tx + dvy*ty)*KD;
+
+            Fx = tx*fs;
+            Fy = ty*fs;
+
+            fx[p1] -= Fx; fy[p1] -= Fy;
+            fx[p2] += Fx; fy[p2] += Fy;
+
+            nx[i] = ty;
+            ny[i] = -tx;
+        }
+    }
+
+    //capacities of the bodies
+    var volume = 0;
+    for(var i=0; i<NUMS; i++){
+        var p1 = springs[i*3 + 0];
+        var p2 = springs[i*3 + 1];
+        
+        x1 = x[p1]; y1 = y[p1];
+        x2 = x[p2]; y2 = y[p2];
+        d = dist(x1,y1,x2,y2);
+        volume += 0.5 * Math.abs(x1 - x2) * Math.abs(nx[i])*(d);
+    }
+
+    //change of pressure
+
+    if(pressure<PMAX){
+        pressure = pressure + 0.01 * PMAX;
+    }
+
+    var pressurev;
+    for(var i=0; i<NUMS; i++){
+        var p1=springs[i*3 + 0];
+        var p2=springs[i*3 + 1];
+        x1 = x[p1]; y1 = y[p1];
+        x2 = x[p2]; y2 = y[p2];
+        d = dist(x1,y1,x2,y2);
+        pressurev = 0.5 * d * pressure * (1.0/volume);
+        fx[p1] += pressurev * nx[i]; fy[p1] += pressurev * ny[i];
+        fx[p2] += pressurev * nx[i]; fy[p2] += pressurev * ny[i];
+    }
+
+    //Integration
+    if(VerletInitialized==0){
+        VerletInitialized=1;
+        for(var i=0; i<NUMP; i++){
+            xp1[i] = x[i]+dt*dt*fx[i]/m;
+            yp1[i] = y[i]+dt*dt*fy[i]/m;
+        }
+    }else{
+        var YBOTTOM = 50;
+        var KSCOLLISION = 220;
+        for(var i=0; i<NUMP; i++){
+            if(y[i]<YBOTTOM){ fy[i] = f[i] - KSCOLLISION*(y[i]-YBOTTOM); }
+
+            xp1[i] = 2*x[i] - xm1[i] + dt*dt*fx[i]/m;
+            yp1[i] = 2*y[i] - ym1[i] + dt*dt*fy[i]/m;
+        }
+    }
+
+    for(var i=0; i<NUMP; i++){
+        xm1[i] = x[i];
+        ym1[i] = y[i];
+        x[i] = xp1[i];
+        y[i] = yp1[i];
+
+        vx[i] = (x[i]-xm1[i])/(2*dt);
+        vy[i] = (y[i]-ym1[i])/(2*dt);
+    }
+
+    //Draw
+
+    resetView();
+
+    for(var i=0; i<NUMS; i++){
+        var p1 = springs[i*3 + 0];
+        var p2 = springs[i*3 + 1];
+
+        x1 = x[p1]; y1 = y[p1];
+        x2 = x[p2]; y2 = y[p2];
+        line(x1,y1,x2,y2);
+    }
+
+
 
     requestAnimationFrame(loop);
 }
