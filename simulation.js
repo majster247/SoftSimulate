@@ -1,204 +1,229 @@
-var W = 800;
-var H = 600;
-var NUMP = 17;
-var NUMS = 0;
-var R= 30;
+var W = 400;				// rozmiar ekranu
+var H = 600;				
+var NUMP = 17;				// ilość punktów
+var NUMS = 0;				// liczba sprężyn
+var R = 30;					// promień ciała
 
-//Psyhic variables
-var Pressure = 0;
-var PMAX = 6890000;
-var KS = 400, KD = 15;
-var g=-9.8;
-var m=4;
+// A2 - wielkości fizyczne
+var pressure = 0;			// początkowe ciśnienie
+var PMAX = 6890000;	// ciśnienie docelowe
+var KS = 400, KD = 15;		// stała sprężystości i stała tłumienia dla sprężynek
+var g = -9.8;				// stała grawitacji
+var m = 4;					// masa pojedynczego punktu na powierzchni ciała
 
-//Object status
-var x=[], y=[]
-var vx=[], vy=[]
-var fx=[], fy=[]
-var nx=[], ny=[]
-var springs = [];
+// A3 - stan obiektu
+var x=[], y=[];				// pozycje
+var vx=[], vy=[];			// prędkość punktów
+var fx=[], fy=[];			// siły
+var nx=[], ny=[];			// wektory normalne
+var springs=[];
 
-//Integration variables
-var xm1 = [], ym1 = [];
+// A4 - dane do całkowania
+var xm1 = [], ym1 = [];		// kopie punktów dla metody Verlet
 var xp1 = [], yp1 = [];
-var VerletInitialized = 0;
-var dt=0.08;
+var verletInitialized = 0;	// czy wykonano pierwszy krok metody całkowania?
+var dt = 0.08;
 
-//Extra data
-
+// A5 - dane dodatkowe
 var ctx;
+// A6 - inicjalizacja - uruchom po załadowaniu strony
+window.onload = function()
+{
+	// pobierz identyfikatory dla płótna
+	var canvas = document.getElementById('canvas');
+	canvas.width = W;	// ustaw wielkość płótna
+	canvas.height = H;
+	ctx = canvas.getContext('2d');	
 
-//Init loop
-
-window.onload = function() {
-    var canvas = document.getElementById("canvas") ;
-    canvas.width = W;
-    canvas.height = H;
-    ctx = canvas.getContext("2d");
-
-    CreateModel();
-
-    loop();
+	// stwórz model
+	CreateModel();
+	
+	
+	// pierwsze wywołanie pętli
+	loop();
 }
 
-
-
-function dist(_x1,_y1,_x2,_y2){
-    return Math.hypot(_x1-_x2,_y1-_y2);
+// A7 - Odległość dwóch wektorów
+function dist(_x1, _y1, _x2, _y2)
+{
+	return Math.hypot(_x1 - _x2, _y1 - _y2);
 }
 
-function addSpring(i, j){
-    springs[NUMS*3 + 0]=i;
-    springs[NUMS*3 + 1]=j;
-    springs[NUMS*3 + 2]=dist(x[i],y[i],x[j],y[j]);
-    NUMS++;
+// A8 - funkcja dodająca sprężynę
+function AddSpring( i, j )
+{
+	springs[ NUMS*3 + 0 ] = i;		// punkt 1
+	springs[ NUMS*3 + 1 ] = j;		// punkt 2
+	springs[ NUMS*3 + 2] = dist(x[i], y[i], x[j], y[j]);  // odległość w stanie równowagi		
+	NUMS++;					// sprężyna została dodana
 }
 
-function CreateModel(){
-    for(var i=0; i<NUMP; i++){
-        x[i] = R * Math.sin(i * (2.0 * Math.PI) / NUMP)+W/2;
-        y[i] = R * Math.cos(i * (2.0 * Math.PI) / NUMP)+H/2;
-        vx[i] = vy[i] = 0;
-    }
+// A9 - Stwórz model, punkty i sprężyny	
+function CreateModel()
+{	
+	for(var i=0 ; i < NUMP ; i++)		// punkty na obwodzie
+	{
+		x[i] = R * Math.sin(i * (2.0 * Math.PI) /  NUMP  )+W/2;
+		y[i] = R * Math.cos(i * (2.0 * Math.PI) /  NUMP  )+H/2;
+		vx[i] = vy[i] = 0;
+	}
 
-    for(var i=0; i<NUMP-1; i++){
-        addSpring(i,i+1);
-    }
-    addSpring(i, 0);
+	for(var i=0 ; i < NUMP-1 ; i++)		// tworzymy sprężyny
+		AddSpring(i,i+1);   
+	AddSpring(i,0);
+}
+	
+// A10 - Procedury graficzne
+function line(x1,y1, x2,y2)
+{
+	ctx.beginPath();
+	ctx.moveTo(x1, y1);
+	ctx.lineTo(x2, y2);
+	ctx.stroke();	
 }
 
-function line(x1,y1,x2,y2){
-    ctx.beginPath();
-    ctx.moveTo(x1,y1);
-    ctx.lineTo(x2,y2);
-    ctx.stroke();
-}
+function resetView()
+{
+	ctx.clearRect(0,0,W,H);
+	ctx.strokeStyle = "rgb(0,0,0)";	
+}	
 
-function resetView(){
-    ctx.clearRect(0,0,W,H);
-    ctx.strokeStyle = "#000000";
-}
+// A11 - pętla symulacji
+loop=function() 
+{
 
+		// A12 - Siła grawitacji
+		for(var i=0; i<NUMP; i++)
+		{
+			fx[i] = 0;
+			fy[i] = -m*g;
+		}
+		
+		// A13 - siła sprężystości
+		var x1,x2,y1,y2;
+		var fs;				// siła sprężystości
+		var dvx, dvy;		// różnica prędkości
+		var Fx, Fy;			// wartości siły
 
-loop = function(){
-    // here ad procedure for loop
+		for(var i=0 ; i < NUMS ; ++i)					// pętla po sprężynach
+		{
+			var p1 = springs[i*3+0];					// indeks punktu 1
+			var p2 = springs[i*3+1];
+			var d0 = springs[i*3+2];					// odległość równowagowa
 
+			x1 = x[ p1 ];	y1 = y[ p1 ];				// współrzędne punktów
+			x2 = x[ p2 ];	y2 = y[ p2 ];					
+			var d = dist(x1, y1, x2, y2);				// długość sprężyny
+								
+			if(d > 0)		
+			{
+				var tx = (x1 - x2) / d;					// wektor jednostkowy 
+				var ty = (y1 - y2) / d;					// od punktu 2 do 1
 
-    //Power calculation
+				dvx = vx[p1] - vx[p2];					// różnica prędkości
+				dvy = vy[p1] - vy[p2];
 
-    for(var i=0; i<NUMP; i++){
-        fx[i]=0;
-        fy[i]=-m*g;
-    }
+				fs = (d - d0)*KS;						// siła sprężystości Hooke'a
+				fs = fs + ( dvx * tx + dvy * ty )*KD;	// tłumienie sprężyny (wzór 2.18)
 
-    var x1, x2, y1, y2;
-    var fs;
-    var dvx, dvy;
-    var Fx, Fy;
-    
-    for(var i=0; i<NUMS; i++){
-        var p1 = springs[i*3 + 0];
-        var p2 = springs[i*3 + 1];
-        var d0 = springs[i*3 + 2];
+				Fx = tx * fs;							// wartość siły "x"
+				Fy = ty * fs;
 
-        x1 = x[p1]; y1 = y[p1];
-        x2 = x[p2]; y2 = y[p2];
-        var d=dist(x1,y1,x2,y2);
-    
+				fx[ p1 ] -= Fx;	fy[ p1 ] -= Fy;			// dodaj siłę dla punktu 1
+				fx[ p2 ] += Fx;	fy[ p2 ] += Fy;			// j. w. dla punktu 2
 
-        if(d>0){
-            var tx = (x2-x1)/d;
-            var ty = (y2-y1)/d;
+				nx[i] =  ty;							// wyznacz wektor normalny z obrotu
+				ny[i] =  -tx;							// tx,ty
+			}	// warunek d>0
+		}	// pętla po sprężynach (for)	
 
-            dvx = vx[p1]-vx[p2];
-            dvy = vy[p1]-vy[p2];
-
-            fs = (d - d0)*KS;
-            fs = fs + (dvx*tx + dvy*ty)*KD;
-
-            Fx = tx*fs;
-            Fy = ty*fs;
-
-            fx[p1] -= Fx; fy[p1] -= Fy;
-            fx[p2] += Fx; fy[p2] += Fy;
-
-            nx[i] = ty;
-            ny[i] = -tx;
-        }
-    }
-
-    //capacities of the bodies
-    var volume = 0;
-    for(var i=0; i<NUMS; i++){
-        var p1 = springs[i*3 + 0];
-        var p2 = springs[i*3 + 1];
-        
-        x1 = x[p1]; y1 = y[p1];
-        x2 = x[p2]; y2 = y[p2];
-        d = dist(x1,y1,x2,y2);
-        volume += 0.5 * Math.abs(x1 - x2) * Math.abs(nx[i])*(d);
-    }
-
-    //change of pressure
-
-    if(pressure<PMAX){
-        pressure = pressure + 0.01 * PMAX;
-    }
-
-    var pressurev;
-    for(var i=0; i<NUMS; i++){
-        var p1=springs[i*3 + 0];
-        var p2=springs[i*3 + 1];
-        x1 = x[p1]; y1 = y[p1];
-        x2 = x[p2]; y2 = y[p2];
-        d = dist(x1,y1,x2,y2);
-        pressurev = 0.5 * d * pressure * (1.0/volume);
-        fx[p1] += pressurev * nx[i]; fy[p1] += pressurev * ny[i];
-        fx[p2] += pressurev * nx[i]; fy[p2] += pressurev * ny[i];
-    }
-
-    //Integration
-    if(VerletInitialized==0){
-        VerletInitialized=1;
-        for(var i=0; i<NUMP; i++){
-            xp1[i] = x[i]+dt*dt*fx[i]/m;
-            yp1[i] = y[i]+dt*dt*fy[i]/m;
-        }
-    }else{
-        var YBOTTOM = 50;
-        var KSCOLLISION = 220;
-        for(var i=0; i<NUMP; i++){
-            if(y[i]<YBOTTOM){ fy[i] = f[i] - KSCOLLISION*(y[i]-YBOTTOM); }
-
-            xp1[i] = 2*x[i] - xm1[i] + dt*dt*fx[i]/m;
-            yp1[i] = 2*y[i] - ym1[i] + dt*dt*fy[i]/m;
-        }
-    }
-
-    for(var i=0; i<NUMP; i++){
-        xm1[i] = x[i];
-        ym1[i] = y[i];
-        x[i] = xp1[i];
-        y[i] = yp1[i];
-
-        vx[i] = (x[i]-xm1[i])/(2*dt);
-        vy[i] = (y[i]-ym1[i])/(2*dt);
-    }
-
-    //Draw
-
-    resetView();
-
-    for(var i=0; i<NUMS; i++){
-        var p1 = springs[i*3 + 0];
-        var p2 = springs[i*3 + 1];
-
-        x1 = x[p1]; y1 = y[p1];
-        x2 = x[p2]; y2 = y[p2];
-        line(x1,y1,x2,y2);
-    }
+		// A14 - oblicza objętość ciała
+		var volume = 0;
+		for(var i=0 ; i<NUMS ; i++)
+		{
+			var p1 = springs[i*3+0];
+			var p2 = springs[i*3+1];
+			x1 = x[ p1 ];		y1 = y[ p1 ];				
+			x2 = x[ p2 ];		y2 = y[ p2 ];		
+			d = dist(x1, y1, x2, y2);					// długość sprężyny		
+			volume += 0.5 * (x1 + x2) * nx[i] * d;	// wzór 2.23 z 2.9.5
+		}
 
 
+		if(pressure < PMAX)	// pompowanie
+			pressure = pressure + 0.01 * PMAX;
+		// A15 - ciśnienie
+		var pressurev;
+		for(i=0 ; i<NUMS ; i++)
+		{
+			var p1 = springs[i*3+0];			// pobierz punkty sprężyny
+			var p2 = springs[i*3+1];
+			x1 = x[ p1 ];		y1 = y[ p1 ];	// współrzędne punktów
+			x2 = x[ p2 ];		y2 = y[ p2 ];		
+			d = dist(x1, y1, x2, y2);			// długość sprężyny	
+			pressurev = 0.5  * pressure * (1.0/volume);		// wartość siły ciśnienia
+			fx[ p1 ] += nx[i] * pressurev;		fy[ p1 ] += ny[i] * pressurev;	 // siła
+			fx[ p2 ] += nx[i] * pressurev;		fy[ p2 ] += ny[i] * pressurev;
+		}		
 
-    requestAnimationFrame(loop);
-}
+		
+		
+		// A16 całkowanie 
+		if(verletInitialized == 0)
+		{
+			verletInitialized = 1;
+			
+			for(var i=0; i<NUMP; i++)
+			{
+				xp1[i] = x[i]+dt*dt*fx[i]/m;				// wzór 2.25
+				yp1[i] = y[i]+dt*dt*fy[i]/m;
+			}
+		}
+		else
+		{	// wykonuj tylko dla iteracji > 0
+			var YBOTTOM = H-50;							// pozycja podłogi
+			var KSCOLLISION = 220;						// sprężystość przy odbiciu
+			for(var i=0; i<NUMP; i++)
+			{	
+				// wirtualna sprężyna (kolizje ze ścianą)
+				if(y[i]>YBOTTOM)	{ 		fy[i] = fy[i] - KSCOLLISION*(y[i]-YBOTTOM);		}
+								
+				// całkuj równania ruchu metodą Verlet
+				xp1[i] = 2*x[i] - xm1[i] + dt*dt*fx[i]/m;		// równanie 2.24
+				yp1[i] = 2*y[i] - ym1[i] + dt*dt*fy[i]/m;				
+			}
+		}
+		
+		// A17 przepisanie stanów dla metody Verlet i obliczenie prędkości
+		for(var i=0; i<NUMP; i++)
+		{
+			xm1[i] = x[i];
+			ym1[i] = y[i];
+			x[i] =	xp1[i];
+			y[i] = 	yp1[i];	
+
+			vx[i] = (x[i] - xm1[i]) / (2*dt);
+			vy[i] = (y[i] - ym1[i]) / (2*dt);			
+		}
+
+		// A18 - rysowanie ciała na płótnie
+		resetView();
+
+		// rysuj ciało miękkie
+		for(i=0 ; i<NUMS ; i++)
+		{
+			var p1 = springs[i*3+0];			// pobierz punkty sprężyny
+			var p2 = springs[i*3+1];
+			x1 = x[ p1 ];		y1 = y[ p1 ];	// współrzędne punktów
+			x2 = x[ p2 ];		y2 = y[ p2 ];		
+			line(x1, y1, x2, y2);				// rysuj sprężynę
+		}
+
+		// narysuj logo
+
+		// A19 ponowne wykonanie pętli
+		requestAnimationFrame(loop);
+};
+
+
+
