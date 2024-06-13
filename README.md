@@ -14,8 +14,8 @@ The Verlet integration method is used to solve the equations of motion. It is pa
 $$ x(t + \Delta t) = 2x(t) - x(t - \Delta t) + \frac{F(t)}{m} \Delta t^2 $$
 
 where:
-- \( x(t) \) is the position of the point at time \( t \),
-- \( F(t) \) is the force applied at time \( t \),
+- $$\( x(t) \)$$ is the position of the point at time \( t \),
+- $$\( F(t) \)$$ is the force applied at time \( t \),
 - \( m \) is the mass of the point,
 - \( \Delta t \) is the time step.
 
