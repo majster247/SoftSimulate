@@ -11,7 +11,7 @@ This project is a JavaScript-based simulation of a soft body using the Verlet in
 
 The Verlet integration method is used to solve the equations of motion. It is particularly well-suited for systems where energy conservation is crucial, like in simulations of physical bodies. The Verlet integration formula is given by:
 
-$ x(t + \Delta t) = 2x(t) - x(t - \Delta t) + \frac{F(t)}{m} \Delta t^2 $
+$$ x(t + \Delta t) = 2x(t) - x(t - \Delta t) + \frac{F(t)}{m} \Delta t^2 $$
 
 where:
 - \( x(t) \) is the position of the point at time \( t \),
